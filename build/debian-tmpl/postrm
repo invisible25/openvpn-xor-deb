@@ -1,0 +1,11 @@
+#!/bin/sh
+# После удаления: снять diversion и вернуть штатный openvpn из .distrib.
+# Только на remove/purge (НЕ на upgrade — иначе мигало бы при обновлении).
+set -e
+case "$1" in
+  remove|purge|abort-install|disappear)
+    dpkg-divert --package openvpn-xor --remove --rename \
+      --divert /usr/sbin/openvpn.distrib /usr/sbin/openvpn
+    ;;
+esac
+exit 0

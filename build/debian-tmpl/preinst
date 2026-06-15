@@ -1,0 +1,12 @@
+#!/bin/sh
+# Перед установкой: отвести штатный /usr/sbin/openvpn в .distrib, чтобы наш
+# XOR-бинарь занял канонический путь. Идемпотентно. На upgrade diversion
+# сохраняется (postrm снимает его только при remove/purge).
+set -e
+case "$1" in
+  install|upgrade)
+    dpkg-divert --package openvpn-xor --add --rename \
+      --divert /usr/sbin/openvpn.distrib /usr/sbin/openvpn
+    ;;
+esac
+exit 0
