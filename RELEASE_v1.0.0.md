@@ -14,8 +14,8 @@
 
 ### Установка
 ```bash
-dpkg -i openvpn-xor_2.6.20-1~deb12_amd64.deb   # файл под свою версию Debian
-# при нехватке зависимостей: apt install ./openvpn-xor_2.6.20-1~deb12_amd64.deb
+dpkg -i openvpn-xor_2.6.20-1-deb12_amd64.deb   # файл под свою версию Debian
+# при нехватке зависимостей: apt install ./openvpn-xor_2.6.20-1-deb12_amd64.deb
 ```
 Затем добавить `scramble obfuscate <КЛЮЧ>` в `/etc/openvpn/server/server.conf` и в каждый клиентский
 `.ovpn`, перезапустить `systemctl restart openvpn-server@server`. Полная инструкция — в `УСТАНОВКА.md`.

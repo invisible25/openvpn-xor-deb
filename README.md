@@ -14,15 +14,15 @@
 | **2.6.20** | ✅ | ✅ | ✅ |
 | **2.7.4**  | ✅ | ✅ | ✅ |
 
-Имя файла: `openvpn-xor_<версия>-1~deb<N>_amd64.deb`. Каждый пакет собран в matched-контейнере
+Имя файла: `openvpn-xor_<версия>-1-deb<N>_amd64.deb`. Каждый пакет собран в matched-контейнере
 `debian:N`, поэтому зависимости точны (deb11→`libssl1.1`, deb13→`libssl3t64`).
 
 ## Установка
 ```bash
 # взять файл под свою версию Debian (см. таблицу), затем:
-dpkg -i openvpn-xor_2.6.20-1~deb12_amd64.deb
+dpkg -i openvpn-xor_2.6.20-1-deb12_amd64.deb
 # если ругнётся на зависимости:
-apt install ./openvpn-xor_2.6.20-1~deb12_amd64.deb
+apt install ./openvpn-xor_2.6.20-1-deb12_amd64.deb
 ```
 Включение обфускации и подробная пошаговая инструкция — в [УСТАНОВКА.md](УСТАНОВКА.md).
 
