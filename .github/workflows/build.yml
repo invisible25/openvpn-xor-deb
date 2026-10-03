@@ -1,0 +1,54 @@
+# Сборка пакетов openvpn-xor в чистых контейнерах debian:<версия>.
+#
+# Зачем CI, а не сборка на машине: пакет ставится на все ноды парка, и его
+# происхождение должно быть проверяемым — те же скрипты, тот же lock-файл,
+# журнал сборки в открытом доступе. Ноды при этом не обрастают компиляторами.
+#
+# Каждая ячейка матрицы проходит fetch-sources.sh целиком: SHA-256 из
+# sources.lock и подпись OpenVPN закреплённым ключом. Неподтверждённые
+# исходники останавливают сборку, а не пропускаются.
+name: build
+
+on:
+  push:
+    branches: [main, reproducible-sources]
+    paths: ['build/**', '.github/workflows/build.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        deb: ['12', '13']
+        ovpn: ['2.6.23', '2.7.7']
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Исходники (SHA-256 + подпись OpenVPN)
+        run: OVPNS_OVERRIDE='${{ matrix.ovpn }}' bash build/fetch-sources.sh
+
+      - name: Сборка deb${{ matrix.deb }} / openvpn-${{ matrix.ovpn }}
+        run: bash build/build-one.sh '${{ matrix.deb }}' '${{ matrix.ovpn }}'
+
+      - name: Проверка пакета
+        run: |
+          set -euo pipefail
+          deb=$(ls build/out/*.deb)
+          dpkg-deb -I "$deb"
+          # Без XOR-маркеров это обычный openvpn: такой пакет молча
+          # сломал бы обфускацию на всех нодах, куда попадёт.
+          dpkg-deb --fsys-tarfile "$deb" | tar -xO ./usr/sbin/openvpn \
+            | grep -aqE 'scramble|xormask' || { echo 'нет XOR-маркеров'; exit 1; }
+          sha256sum "$deb"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: openvpn-xor_${{ matrix.ovpn }}-deb${{ matrix.deb }}
+          path: build/out/*.deb
+          if-no-files-found: error
