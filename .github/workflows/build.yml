@@ -43,8 +43,11 @@ jobs:
           dpkg-deb -I "$deb"
           # Без XOR-маркеров это обычный openvpn: такой пакет молча
           # сломал бы обфускацию на всех нодах, куда попадёт.
-          dpkg-deb --fsys-tarfile "$deb" | tar -xO ./usr/sbin/openvpn \
-            | grep -aqE 'scramble|xormask' || { echo 'нет XOR-маркеров'; exit 1; }
+          # Распаковка в каталог, а не конвейер в grep -q: grep закрывает канал
+          # на первом совпадении, tar получает EPIPE, и pipefail валит шаг.
+          dpkg-deb -x "$deb" "$RUNNER_TEMP/pkg"
+          grep -aqE 'scramble|xormask' "$RUNNER_TEMP/pkg/usr/sbin/openvpn" \
+            || { echo 'нет XOR-маркеров'; exit 1; }
           sha256sum "$deb"
 
       - uses: actions/upload-artifact@v4
