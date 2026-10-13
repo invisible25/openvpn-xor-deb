@@ -1,17 +1,23 @@
 #!/bin/bash
-# Сборка одной ячейки матрицы ВНУТРИ контейнера debian:<DEB>.
-# Аргументы: <DEB> <OVPN>, напр.: inner.sh 12 2.6.20
+# Сборка одной ячейки матрицы ВНУТРИ контейнера целевой системы.
+# Аргументы: <TAG> <OVPN>, напр.: inner.sh deb12 2.6.23, inner.sh ubuntu22.04 2.6.23.
+# TAG входит в версию пакета (2.6.23-1~deb12, 2.6.23-1~ubuntu22.04): по ней
+# установщик ноды узнаёт, что стоит пакет именно под эту систему.
 set -euo pipefail
 
-DEB="$1"; OVPN="$2"
+TAG="$1"; OVPN="$2"
+case "$TAG" in
+  deb[0-9]*|ubuntu[0-9][0-9].[0-9][0-9]) ;;
+  *) echo "неизвестная цель $TAG" >&2; exit 2 ;;
+esac
 WORK=/work
 OUT="$WORK/out"
-BUILD="/tmp/build-${OVPN}-deb${DEB}"
-STAGE="/tmp/stage-${OVPN}-deb${DEB}"
+BUILD="/tmp/build-${OVPN}-${TAG}"
+STAGE="/tmp/stage-${OVPN}-${TAG}"
 export DEBIAN_FRONTEND=noninteractive
 
 echo "==================================================================="
-echo "### BUILD deb${DEB} / openvpn-${OVPN}"
+echo "### BUILD ${TAG} / openvpn-${OVPN}"
 echo "==================================================================="
 
 echo "### [1/6] apt build-deps"
@@ -71,7 +77,7 @@ else
 fi
 
 echo "### [6/6] package (.deb)"
-# shared-lib deps через dpkg-shlibdeps (точно под этот Debian, включая t64)
+# shared-lib deps через dpkg-shlibdeps (точно под эту систему, включая t64)
 mkdir -p debian
 printf 'Source: openvpn-xor\nPackage: openvpn-xor\nArchitecture: amd64\n' > debian/control
 SHLIBS="$(dpkg-shlibdeps -O --ignore-missing-info "$STAGE/usr/sbin/openvpn" 2>/dev/null \
@@ -85,7 +91,7 @@ DEPENDS="openvpn (>= 2.4), ${SHLIBS}"
 mkdir -p "$STAGE/DEBIAN"
 cat > "$STAGE/DEBIAN/control" <<EOF
 Package: openvpn-xor
-Version: ${OVPN}-1~deb${DEB}
+Version: ${OVPN}-1~${TAG}
 Architecture: amd64
 Maintainer: Invisible Net VPN <invisible2584@gmail.com>
 Depends: ${DEPENDS}
@@ -105,7 +111,7 @@ install -m0755 "$WORK/debian-tmpl/postrm"   "$STAGE/DEBIAN/postrm"
 install -m0755 "$WORK/debian-tmpl/postinst" "$STAGE/DEBIAN/postinst"
 
 mkdir -p "$OUT"
-DEBFILE="$OUT/openvpn-xor_${OVPN}-1~deb${DEB}_amd64.deb"
+DEBFILE="$OUT/openvpn-xor_${OVPN}-1~${TAG}_amd64.deb"
 dpkg-deb --build --root-owner-group "$STAGE" "$DEBFILE"
 echo "### DONE: $DEBFILE"
 dpkg-deb -I "$DEBFILE" | sed 's/^/    /'
