@@ -1,0 +1,104 @@
+# Сборка пакетов openvpn-xor в чистых контейнерах целевых систем.
+#
+# Зачем CI, а не сборка на машине: пакет ставится на все ноды парка, и его
+# происхождение должно быть проверяемым — те же скрипты, тот же lock-файл,
+# журнал сборки в открытом доступе. Ноды при этом не обрастают компиляторами.
+#
+# Каждая ячейка матрицы проходит fetch-sources.sh целиком: SHA-256 из
+# sources.lock и подпись OpenVPN закреплённым ключом. Неподтверждённые
+# исходники останавливают сборку, а не пропускаются.
+#
+# Тег vX.Y.Z — релиз: все пакеты матрицы и SHA256SUMS.txt. Суммы из него
+# закрепляются в установщике ноды (deploy/install-node.sh панели IVPN).
+name: build
+
+on:
+  push:
+    branches: [main, reproducible-sources]
+    paths: ['build/**', '.github/workflows/build.yml']
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        # Debian — числом, Ubuntu — ubuntuXX.YY (только LTS: промежуточные
+        # выпуски живут по 9 месяцев). Пакет собирается и проверяется в
+        # контейнере той же системы: зависимости (glibc, libssl3/libssl3t64)
+        # у каждой свои.
+        target: ['12', '13', 'ubuntu22.04', 'ubuntu24.04', 'ubuntu26.04']
+        ovpn: ['2.6.23', '2.7.7']
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Исходники (SHA-256 + подпись OpenVPN)
+        run: OVPNS_OVERRIDE='${{ matrix.ovpn }}' bash build/fetch-sources.sh
+
+      - name: Сборка ${{ matrix.target }} / openvpn-${{ matrix.ovpn }}
+        run: bash build/build-one.sh '${{ matrix.target }}' '${{ matrix.ovpn }}'
+
+      - name: Проверка пакета
+        run: |
+          set -euo pipefail
+          deb=$(ls build/out/*.deb)
+          dpkg-deb -I "$deb"
+          # Без XOR-маркеров это обычный openvpn: такой пакет молча
+          # сломал бы обфускацию на всех нодах, куда попадёт.
+          # Распаковка в каталог, а не конвейер в grep -q: grep закрывает канал
+          # на первом совпадении, tar получает EPIPE, и pipefail валит шаг.
+          dpkg-deb -x "$deb" "$RUNNER_TEMP/pkg"
+          grep -aqE 'scramble|xormask' "$RUNNER_TEMP/pkg/usr/sbin/openvpn" \
+            || { echo 'нет XOR-маркеров'; exit 1; }
+          sha256sum "$deb"
+
+      # Установка поверх штатного openvpn в чистом контейнере той же системы,
+      # запуск и откат: собранный, но не встающий пакет не должен попасть в релиз.
+      - name: Установка в чистой системе и откат
+        run: bash build/smoke-test.sh '${{ matrix.target }}' '${{ matrix.ovpn }}'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: openvpn-xor_${{ matrix.ovpn }}-${{ matrix.target }}
+          path: build/out/*.deb
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Релиз
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cd dist
+          # GitHub заменяет «~» в именах файлов релиза — переименовываем сами,
+          # чтобы имена были предсказуемыми для установщика.
+          for f in *~*.deb; do mv "$f" "${f//\~/-}"; done
+          sha256sum *.deb | sed 's/  / */' > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          {
+            echo "Пакеты openvpn-xor, собранные и проверенные в CI ([журнал](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}))."
+            echo
+            echo "Debian 12, 13; Ubuntu 22.04, 24.04, 26.04 (amd64). Каждый пакет установлен поверх штатного openvpn в чистом контейнере своей системы, запущен и откачен."
+            echo
+            echo '```'
+            cat SHA256SUMS.txt
+            echo '```'
+          } > notes.md
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
+            --title "openvpn-xor $GITHUB_REF_NAME" --notes-file notes.md *.deb SHA256SUMS.txt
