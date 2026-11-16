@@ -19,14 +19,14 @@ OPENVPN_SIGNING_KEY="F554A3687412CFFEBDEFE0A312F5F7B42F2B01E7"
 # Версии по веткам. 2.5 — последний подписанный релиз ветки: в Tunnelblick она
 # сейчас лежит как git-снапшот 2.5_git_37160ee без подписи, и, кроме того, '_'
 # недопустим в версии deb-пакета.
-OVPNS="2.5.11 2.6.23 2.7.7"
+OVPNS="2.5.11 2.6.23 2.7.9"
 
 # SHA-256 официальных тарболов. Проверяются ДО распаковки, подпись — после.
 SHA256_2_5_11="7e2672119bd4639819d560f332a8b9b7e28f562425c77899f36d419fe4265f56"
 SHA256_2_6_23="4041c709162bec1325abf5aa8cf27a255cc477c634b15ee310411c701fc40a96"
-SHA256_2_7_7="3ab8f48fd6c26d49ba2333a092433949afdb5c85c0e6a1ff265784fbc04a2463"
+SHA256_2_7_9="c42a6ed892ddfe2d6e3317a5040f19bec5827564affb2fe3f2b3904a94daacb1"
 
 # Откуда взяты патчи (Tunnelblick/Tunnelblick, third_party/sources/openvpn).
 PATCHES_FROM_2_5_11="51ec272ba4945cea8c506643e662806151c6cfb3"
 PATCHES_FROM_2_6_23="8cfd9b89144824176c3f28fd921e54156fe141a3"
-PATCHES_FROM_2_7_7="8cfd9b89144824176c3f28fd921e54156fe141a3"
+PATCHES_FROM_2_7_9="262ed58d9c08b28af60b84d73bef8a29d23a99f7"

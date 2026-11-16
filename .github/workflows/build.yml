@@ -34,7 +34,7 @@ jobs:
         # контейнере той же системы: зависимости (glibc, libssl3/libssl3t64)
         # у каждой свои.
         target: ['12', '13', 'ubuntu22.04', 'ubuntu24.04', 'ubuntu26.04']
-        ovpn: ['2.6.23', '2.7.7']
+        ovpn: ['2.6.23', '2.7.9']
     steps:
       - uses: actions/checkout@v4
 
